@@ -1,0 +1,21 @@
+发布到 jitpack 链接：https://www.jianshu.com/p/e1f5f5cc3dbf
+这种方式很简单，但是因为 Android Studio 默认不支持 jitpack，所以添加依赖的时候需要额外在工程根 build.gradle 文件里面添加 maven { url 'https://jitpack.io' }
+
+1.创建一个工程，创建git仓库
+2.分享到Github，填写Github的账号密码，提交上去就可以了
+3.打开自己的Github主页，找到这个工程，点releases
+4.打开 https://jitpack.io/ 网站，输入你的Github项目地址，点 look up，选择需要发布的版本，Get it
+
+
+注意：
+jitpack 发布方式简单快速，有以下几点需要注意：
+创建 module 的时候，Android Library 最终生成的是 aar包，Java Library 对应 jar包。
+工程单依赖的情况下（一个app依赖一个module），最终生成的依赖包是被依赖的那个 module。
+如果工程里有多个module相互依赖，直接打包的话是会生成多个依赖包的，如需要生成指定 module 的依赖包，需要如下操作：
+
+1.在工程根 build.gradle 文件里 buildscript - dependencies 添加 ：
+  classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+  注意此处的插件版本号要跟你的 gradle 插件版本号相匹配，匹配关系表查看：
+  https://github.com/dcendents/android-maven-gradle-plugin#note-on-releases
+2.在需要打包的 module 的 build.gradle 文件顶部添加插件：
+  apply plugin: 'com.github.dcendents.android-maven'
