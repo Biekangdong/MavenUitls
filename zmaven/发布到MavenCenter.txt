@@ -1,0 +1,472 @@
+所需账号
+1，Sonatype
+Sonatype是美国一家开源DevOps服务供应商，支持开源组件（中央仓），为开发者提供资源库管理器（Nexus）
+2，OSSRH
+OSSRH（Open Source Software Repository Hosting）是Sonatype 提供的一个开源软件资源库托管工具，帮助我们来方便的将项目发布到中心仓库中。它是项目所有者和贡献者将其组件发布到中央资源库的主要途径。
+3，JIRA
+JIRA是Atlassian公司出品的项目与事务跟踪工具，被广泛应用于缺陷跟踪、客户服务、需求收集、流程审批、任务跟踪、项目跟踪和敏捷管理等工作领域。
+4，GPG
+将项目发布到maven仓库的要求之一是它们已与 PGP 签署。GnuPG 或 GPG是 OpenPGP 标准的免费实现。GPG 提供了生成签名、管理密钥和验证签名的功能
+
+
+预备知识
+1，maven中央仓库（Maven Central），由sonatype.org维护。
+snapshots版本不需要Staging审核，在https://oss.sonatype.org可以查到。
+release版本需要通过Staging审核，最终才可以在https://repo1.maven.org/maven2/查到。
+2，gpg签名
+gpg是加密工具，如果要发布自己的jar到中央仓库Release Repositories ，则需要gpg签名，证明此包的完整性。
+加密解密是防止内容泄漏，签名验签是防止内容被串改（确保完整性）。
+这里只使用rsa签名验签功能。
+3，release版本和snapshots版本区别
+snapshots版本：快照版本即开发版本，版本号以-SNAPSHOT结尾，开发人员同一个版本多次发布，使用者可以自动load最新版本。
+release版本：发布版本即稳定版本，开发人员同一个版本多次发布，使用者不能自动load最新版本。
+
+
+
+概念梳理
+https://mdnice.com/writing/9f83e4f9c5f64e43bfc9a522c93925c9
+1，什么是POM？
+POM（Project Object Model）指项目对象模型，用于描述项目构件的基本信息。一个有效的 POM 节点中主要包含以下参数
+groupId	       组织 / 公司名	io.github.pengxurui
+artifactId	   组件名	        modular-eventbus-annotation
+version	       组件版本	        1.0.0
+packaging	   格式	            jar
+2，什么是仓库（repository）
+在项目中，我们会需要依赖各种各样的二方库或三方库，这些依赖一定会存放在某个位置（Place），这个位置就叫做仓库。使用仓库可以帮助我们管理项目构件，例如 jar、aar 等等
+本地仓库： 无论使用 Linux 还是 Window，计算机中会有一个目录用来存放从中央仓库或远程仓库下载的依赖文件；
+远程仓库： 包括中央仓库和私有仓库。中央仓库是开源社区提供的仓库，是绝大多数开源库的存放位置。比如 Maven 社区的中央仓库 Maven Central；私有仓库是公司或组织的自定义仓库，可以理解为二方库的存放位置。
+3，Sonatype、Nexus 和 Maven 的关系
+Sonatype： 完整名称是 Sonatype OSSRH（OSS Repository Hosting），为开源项目提供免费的中央存储仓库服务。其中需要用到 Nexus 作为仓库管理器；
+Nexus： 完整名称是 Sonatype Nexus Repository Manager，是 Sonatype 的另一款产品，用作提供仓库管理器。Sonatype 基于 Nexus 提供中央仓库，各个公司也可以使用 Nexus 搭建私有仓库；
+Maven： 完整名称是 Apache Maven，是一种构建系统。除了 Maven 之外，Apache Ant 和 Gradle 都可以发布组件。
+
+实战步骤：
+第一步：JIRA 帐户
+1，创建账号
+注册地址：https://issues.sonatype.org/secure/Signup!default.jspa
+2，创建新项目工单
+地址：https://issues.sonatype.org/secure/CreateIssue.jspa?issuetype=21&pid=10134
+Project：选择Community Support - Open Source Project Repository Hosting(OSSRH)
+Issue Type：选择New Project
+Summary：写个标题做个简单概述你要做什么。真不知道写什么，直接把项目名称写上就行
+Group Id：有域名 可以使用子域名作为Group Id,没域名如果有github账号也可以，例：io.github.github账号名。注意：com.github.* Group IDs已经无效
+Project URL：填写该项目的Github地址
+SCM url：只需要在上面的Github地址后面加上.git后缀即可
+
+
+第二步：使用 GPG 生成密钥对
+下载gpg地址：https://gnupg.org/download/
+教程连接：https://blog.csdn.net/hanly_jiang/article/details/123123111
+1. gpg --version //查看版本确认是否安装成功
+2. gpg --full-generate-key //创建密钥
+3. gpg --export-secret-keys -o secring.gpg //导出密钥，记住路径，后面在build.gradle中配置需要用到
+4. gpg --keyserver keyserver.ubuntu.com --send-keys CA925CD6C9E8D064FF05B4728190C4130ABA0F98 //分发到密钥服务器，以便用户可以对其进行验证
+
+示例：
+C:\Users\dong>gpg --gen-key
+gpg (GnuPG) 2.4.0; Copyright (C) 2021 g10 Code GmbH
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+gpg: keybox 'C:\\Users\\dong\\AppData\\Roaming\\gnupg\\pubring.kbx' created
+Note: Use "gpg --full-generate-key" for a full featured key generation dialog.
+
+GnuPG needs to construct a user ID to identify your key.
+
+Real name: dong
+Email address: zhengzhou
+Not a valid email address
+Email address: 809459535@qq.com
+You selected this USER-ID:
+    "dong <809459535@qq.com>"
+
+Change (N)ame, (E)mail, or (O)kay/(Q)uit? o
+We need to generate a lot of random bytes. It is a good idea to perform
+some other action (type on the keyboard, move the mouse, utilize the
+disks) during the prime generation; this gives the random number
+generator a better chance to gain enough entropy.
+We need to generate a lot of random bytes. It is a good idea to perform
+some other action (type on the keyboard, move the mouse, utilize the
+disks) during the prime generation; this gives the random number
+generator a better chance to gain enough entropy.
+gpg: C:\\Users\\dong\\AppData\\Roaming\\gnupg\\trustdb.gpg: trustdb created
+gpg: directory 'C:\\Users\\dong\\AppData\\Roaming\\gnupg\\openpgp-revocs.d' created
+gpg: revocation certificate stored as 'C:\\Users\\dong\\AppData\\Roaming\\gnupg\\openpgp-revocs.d\\3F4853570E4B754B5FFDDA712ECC233F04E06F1A.rev'
+public and secret key created and signed.
+
+pub   ed25519 2023-02-14 [SC] [expires: 2025-02-13]
+      3F4853570E4B754B5FFDDA712ECC233F04E06F1A
+uid                      dong <809459535@qq.com>
+sub   cv25519 2023-02-14 [E] [expires: 2025-02-13]
+
+
+C:\Users\dong>gpg --list-keys
+gpg: checking the trustdb
+gpg: marginals needed: 3  completes needed: 1  trust model: pgp
+gpg: depth: 0  valid:   1  signed:   0  trust: 0-, 0q, 0n, 0m, 0f, 1u
+gpg: next trustdb check due at 2025-02-13
+C:\Users\dong\AppData\Roaming\gnupg\pubring.kbx
+-----------------------------------------------
+pub   ed25519 2023-02-14 [SC] [expires: 2025-02-13]
+      3F4853570E4B754B5FFDDA712ECC233F04E06F1A
+uid           [ultimate] dong <809459535@qq.com>
+sub   cv25519 2023-02-14 [E] [expires: 2025-02-13]
+
+
+C:\Users\dong>gpg --export-secret-keys -o secring.gpg
+
+C:\Users\dong>gpg --keyserver hkp://keyserver.ubuntu.com --send-keys 2ECC233F04E06F1A
+gpg: sending key 2ECC233F04E06F1A to hkp://keyserver.ubuntu.com
+
+
+可用的key-server：
+hkp://keyserver.ubuntu.com
+hkp://pool.sks-keyservers.net
+hkp://keys.openpgp.org
+hkp://keys.gnupg.net
+hkp://keys.openpgp.org
+
+3F4853570E4B754B5FFDDA712ECC233F04E06F1A
+密钥ID:2ECC233F04E06F1A
+
+
+
+第三步：配置gradle
+1，在gradle.properties文件中添加签名和上传的凭据
+#项目信息
+PROJ_GROUP=io.github.biekangdong
+PROJ_BASENAME=MavenUtils
+PROJ_VERSION=1.4
+PROJ_WEBSITEURL=https://github.com/Biekangdong/MavenUitls
+PROJ_VCSURL=https://github.com/Biekangdong/MavenUitls.git
+PROJ_URL=https://github.com/Biekangdong/MavenUitls/master
+PROJ_DESCRIPTION=A Android Plugin Framework
+
+#开发这信息
+DEVELOPER_ID=dong
+DEVELOPER_NAME=dong
+DEVELOPER_EMAIL=809459535@qq.com
+
+# 公钥ID的后8位 3F4853570E4B754B5FFDDA712ECC233F04E06F1A
+signing.keyId=04E06F1A
+signing.password=Aa123456..
+signing.secretKeyRingFile=C\:/Users/dong/secring.gpg
+
+#sonatype 账号密码
+ossrhUsername=biekangdong
+ossrhPassword=1577829160BkdKdb..
+
+#sonatype 仓库，对应sonatype.org人工审核通过后评论或邮件中提供的snapshots和release地址
+sonartypeStaging=https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/
+sonatypeSnapshots=https://s01.oss.sonatype.org/content/repositories/snapshots/
+
+2，在需要发布类库的build.gradle中添加
+plugins {
+    id 'maven-publish'
+    id 'signing'
+}
+afterEvaluate {
+    publishing {
+        repositories {
+            maven {
+                name "local"
+                url = "$buildDir/repo"
+            }
+            maven {
+                name "sonartype-Staging"
+                url = sonartypeStaging
+                credentials {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
+            }
+            maven {
+                name "sonatype-Snapshots"
+                url = sonatypeSnapshots
+                credentials {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
+            }
+        }
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                from components.release
+                groupId = PROJ_GROUP
+                artifactId = PROJ_BASENAME
+                version = PROJ_VERSION
+                pom {
+                    name = PROJ_BASENAME
+                    description = PROJ_DESCRIPTION
+                    url = PROJ_VCSURL
+                    licenses {
+                        license {
+                            name='The Apache Software License, Version 2.0'
+                            url='http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = DEVELOPER_ID
+                            name = DEVELOPER_NAME
+                            email = DEVELOPER_EMAIL
+                        }
+                    }
+                    scm {
+                        connection = PROJ_WEBSITEURL
+                        developerConnection = PROJ_VCSURL
+                        url = PROJ_URL
+                    }
+                }
+            }
+            debug(MavenPublication) {
+                from components.debug
+
+                groupId = PROJ_GROUP
+                artifactId = PROJ_BASENAME
+                version = String.format("%s-SNAPSHOT",PROJ_VERSION)
+
+                pom {
+                    name = PROJ_BASENAME
+                    description = PROJ_DESCRIPTION
+                    url = PROJ_WEBSITEURL
+                    licenses {
+                        license {
+                            name='The Apache Software License, Version 2.0'
+                            url='http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = DEVELOPER_ID
+                            name = DEVELOPER_NAME
+                            email = DEVELOPER_EMAIL
+                        }
+                    }
+                    scm {
+                        connection = PROJ_WEBSITEURL
+                        developerConnection = PROJ_VCSURL
+                        url = PROJ_URL
+                    }
+                }
+            }
+        }
+
+        signing {
+            sign publishing.publications.release , publishing.publications.debug
+        }
+    }
+	
+	
+3，将库发布到中央存储库，点击Tasks-publish-publish执行发布
+如果你没有自定义发布的 Maven 仓库，vanniktech 插件默认会发布到 Sonatype 管理的中央仓库中。由于历史原因，Sonatype 中央仓库有 2 个域名：
+https://s01.oss.sonatype.org/
+https://oss.sonatype.org/
+按照 官方的说法 ，oss.sonatype.org 是过时的，从 2021 年 2 月开始启用 s01.oss.sonatype.org
+
+中央 release 仓库："https://s01.oss.sonatype.org/content/repositories/releases"
+中央 snapshot 仓库："https://s01.oss.sonatype.org/content/repositories/snapshots"
+暂存库："https://s01.oss.sonatype.org/service/local/staging/deploy/maven2"
+
+
+
+
+第四步：查看仓库
+地址：https://s01.oss.sonatype.org/#stagingRepositories
+1，账号就是JIRA的账号，登录后点击左侧的Staging Repositories，然后右侧就会显示你所提交的库，如果库没有什么问题那么选中后点击上面工具栏的Close按钮
+2，点击之后maven库会对你的库进行验证，验证完成后点击Close左边的Refresh按钮就会出现Release按钮，然后点击Release，至此发布完成
+3，完成之后需要等待半小时左右的时间才能使用，在此期间你注册JIRA的时候填写的邮箱会收到邮件通知https://repo1.maven.org/maven2/    (30分钟之后可以在里面找到自己的库), https://search.maven.org (四个小时之后可以在里面找到自己的库)
+4，sonatype提供的官方文档：https://central.sonatype.org/publish/publish-guide/
+5，本地仓库nexus /run 启动   http://localhost:8081/#admin/repository/repositories  admin Aa123456..
+
+
+第五步：依赖
+如果是已经发布到 release 中央仓库，你的工程只要包含 mavenCentral() 这个仓库地址就可以了
+repositories {
+    // 中央仓库（不包含 snapshot 中央仓库）
+    mavenCentral()
+    // release 中央仓库
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/releases'}
+    // snapshot 中央仓库
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'}
+    // 暂存库，用于验证
+    maven { url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2"}  
+	
+	//release 中央仓库
+	maven {
+		allowInsecureProtocol = true
+		url "http://localhost:8081/repository/maven-releases/"
+	}
+	//本地中央仓库
+	maven {
+		allowInsecureProtocol = true
+		url "http://localhost:8081/repository/maven-snapshots/"
+	}
+}
+implementation 'io.github.biekangdong:MavenUtils:1.4-SNAPSHOT'
+implementation 'io.github.biekangdong:MavenUtils:1.4'
+
+
+
+第六步：上传
+1，上传release版本 
+进入https://s01.oss.sonatype.org/  管理后台，通过点击Staging Repositories 去找到我们刚刚发布的包并继续发包流程，包刚上传上来你会发现只有Refresh、Close和Drop可以点击，这个时候我们如果想立即发布直接点击Close，通过页面的下半部分可以看到处理的状态，刷新需要我们点击Refresh进行刷新，每一次点击Close都是一个单独的Task，如果Task中每个环节都是绿色通过的状态，那么这个包的状态就回变成closed，Release菜单就可以点击发布了，操作完后等待差不多10分钟就可以访问发布包的新版本了
+2，查看release版本 
+方法1-在 Sonatype Nexus 面板上查看，repositories->Releases->Path lookep(搜索io.github.biekangdong)
+方法2-在 release 中央仓库的文件目录中查看，例如 https://s01.oss.sonatype.org/content/repositories/releases/io/github/biekangdong/MavenUtils/
+方法3-在 MavenCentral搜索栏(https://search.maven.org/)查找： 这是最正式的方式，缺点是不实时更新，大概有 的延迟，而前两种方式在发布后立即更新,按照    官方的说法 ，发布后的组件会在 30 分钟内同步到中央仓库，但搜索功能需要达到 4 个小时
+邮件：
+[ https://issues.sonatype.org/browse/OSSRH-88692?page=com.atlassian.jira.plugin.system.issuetabpanels:all-tabpanel ]
+
+Bot Central-OSSRH 更新了 OSSRH-88692:
+----------------------------------
+
+Central sync is activated for io.github.biekangdong. After you successfully release, your component will be available to the public on Central https://repo1.maven.org/maven2/, typically within 30 minutes, though updates to https://search.maven.org can take up to four hours.
+
+> MavenUtils
+> ----------
+>
+>                 关键字: OSSRH-88692
+>                 URL: https://issues.sonatype.org/browse/OSSRH-88692
+>                  项目: Community Support - Open Source Project Repository Hosting
+>                问题类型: New Project
+>                 报告人: biekangdong
+>                 经办人: Joel Orlina
+>                 优先级: 重要
+>
+> Utils
+
+
+
+--
+这条信息是由Atlassian Jira发送的
+
+3，发布仓库流程总结
+>>>本地机器仓库：
+maven { url = "$buildDir/repo"}
+
+>>>本地服务器仓库:debug,release
+snapshots 中央仓库
+maven {allowInsecureProtocol = true    url "http://localhost:8081/repository/maven-snapshots/"}
+release 中央仓库
+maven {allowInsecureProtocol = true   url "http://localhost:8081/repository/maven-releases/"}
+
+>>>远程服务器仓库:debug,release
+暂存库，用于验证
+maven { url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2"}
+snapshot 中央仓库
+maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'}
+release 中央仓库
+maven { url 'https://s01.oss.sonatype.org/content/repositories/releases'}
+
+>>>远程服务器仓库:release，sonatype
+https://issues.sonatype.org/projects/OSSRH/issues/OSSRH-88692?filter=reportedbyme （sonatype个人问题面板）
+https://search.maven.org （sonatype上线搜索项目）
+https://central.sonatype.com/ （转到该仓库搜索）
+Introducing the new look of The Central Repository（https://central.sonatype.com/）, designed to address artifact search needs 
+
+
+
+第七步：其它方法：
+使用 vanniktech 的发布插件（推荐）
+gradle-maven-publish-plugin ********是一个外国大佬 vanniktech 开源的 Gradle 插件，需要使用 Gradle 7.2.0 以上的 Gradle 环境。它会创建一个 publish Task，支持将 Java、Kotlin 或 Android 组件发布到任何 Maven 仓库，同时也支持发布携带 Java / Kotlin 代码的 Javadoc 产物和 Sources 产物。虽然目前（2022/08/24）这个项目的最新版本只是 0.21.0，不过既然已经在 LeakCanary 上验证过，大胆用起来吧。
+1，项目级 build.gradle
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        // vanniktech 发布插件
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.18.0'
+        // Kotlin Javadoc，非必须
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:1.6.20"
+        // 最新版 1.7.10 和 0.21.0 组合有问题，应该是没兼容好。上面两个版本组合我验证过是可以的。
+    }
+}
+
+2，模块级 build.gradle
+apply plugin: "com.vanniktech.maven.publish"
+// Kotlin Javadoc，非必须。如果有这个插件，发布时会生成 Javadoc，会延长发布时间。建议在 snapshot 阶段关闭
+apply plugin: "org.jetbrains.dokka"
+注意：
+Sync 项目后，插件会为模块增加两个 Task 任务：
+publish： 发布到远程 Maven 仓库，默认是 Sonatype 中央仓库；
+publishToMavenLocal： 发布到当前机器的本地 Maven 仓库，即 ~/.m2/repository。
+
+3，配置 vanniktech 插件的发布参数
+分别在项目级 gradle.properties 和模块级 gradle.properties 中配置以下参数：
+
+项目级 gradle.properties
+######################################################################
+# for vanniktech
+######################################################################
+# 服务器地址
+SONATYPE_HOST=S01
+
+# 发布 release 组件时是否签名
+RELEASE_SIGNING_ENABLED=true
+
+# 组织名
+GROUP=io.github.pengxurui
+
+# 主页
+POM_URL=https://github.com/pengxurui/ModularEventBus/
+
+# 版本控制信息
+POM_SCM_URL=https://github.com/pengxurui/ModularEventBus/
+POM_SCM_CONNECTION=scm:git:git:github.com/pengxurui/ModularEventBus.git
+POM_SCM_DEV_CONNECTION=scm:git:ssh://git@github.com/pengxurui/ModularEventBus.git
+
+# Licenses 信息
+POM_LICENSE_NAME=The Apache Software License, Version 2.0
+POM_LICENSE_URL=https://www.apache.org/licenses/LICENSE-2.0.txt
+POM_LICENSE_DIST=repo
+
+# 开发者信息
+POM_DEVELOPER_ID=pengxurui
+POM_DEVELOPER_NAME=Peng Xurui
+POM_DEVELOPER_URL=https://github.com/pengxurui/
+
+mavenCentralUsername=[填 Sonatype 账号名]
+mavenCentralPassword=[填 Sonatype 密码]
+
+signing.keyId=[密钥指纹，取后 8 位即可]
+signing.password=[passphrase 密钥口令]
+signing.secretKeyRingFile=[导出的私钥文件路径，如 /Users/pengxurui/xxx.gpg]
+
+模块级 gradle.properties
+POM_NAME=ModularEventBus Annotations
+POM_ARTIFACT_ID=modular-eventbus-annotation
+POM_PACKAGING=jar
+POM_DESCRIPTION=The annotation used in ModularEventBus api
+VERSION_NAME=1.0.0
+
+特别注意：私有信息不要提交到 git 版本管理中，可以写在 local.properties 中，等到要发布组件时再复制到 gradle.properties 中。而私钥文件也不要保存在当前工程的目录里，可以统一放到工程外的一个目录。
+
+
+
+第八步： 报错记录
+Sonatype 账号密码错误：
+Failed to publish publication 'maven' to repository 'mavenCentral'
+   > Could not PUT 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/io/github/pengxurui/modular-eventbus-annotation/1.0.2/modular-eventbus-annotation-1.0.2.jar'. Received status code 401 from server: Unauthorized
+   
+GPG 密钥错误：
+Execution failed for task ':eventbus_annotation:signMavenPublication'.
+> Error while evaluating property 'signatory' of task ':eventbus_annotation:signMavenPublication'
+   > org.bouncycastle.openpgp.PGPException: checksum mismatch at 0 of 20
+   
+GPG 密钥算法错误：
+Execution failed for task ':eventbus_annotation:signMavenPublication'.
+> Error while evaluating property 'signatory' of task ':eventbus_annotation:signMavenPublication'
+   > org.bouncycastle.openpgp.PGPException: unknown public key algorithm encountered 
+   
+Javadoc 生成报错：
+Execution failed for task ':eventbus_api:androidJavadocs'.
+> Javadoc generation failed. Generated Javadoc options file (useful for troubleshooting): '/Users/pengxurui/workspace/public/ModularEventBus/eventbus_api/build/tmp/androidJavadocs/javadoc.options'
+
+vanniktech 插件与 Dokka 插件兼容问题：
+Execution failed for task ':eventbus_api:javaDocReleaseGeneration'.
+> 'void org.jetbrains.dokka.DokkaSourceSetImpl.<init>(java.lang.String, org.jetbrains.dokka.DokkaSourceSetID,
+...
+

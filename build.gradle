@@ -4,6 +4,23 @@ buildscript {
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
+//         //release 中央仓库
+//        zmaven { url 'https://s01.oss.sonatype.org/content/repositories/releases'}
+//        // snapshot 中央仓库
+//        zmaven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'}
+//        // 暂存库，用于验证
+//        zmaven { url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2"}
+
+//        //release 中央仓库
+//        zmaven {
+//            allowInsecureProtocol = true
+//            url "http://localhost:8081/repository/maven-releases/"
+//        }
+//        //本地中央仓库
+//        zmaven {
+//            allowInsecureProtocol = true
+//            url "http://localhost:8081/repository/maven-snapshots/"
+//        }
     }
     dependencies {
         classpath "com.android.tools.build:gradle:7.0.0"
